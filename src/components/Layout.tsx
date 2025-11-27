@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { usePageContext } from '@/contexts/PageContext';
 import { Car, House, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { initData, useSignal } from '@tma.js/sdk-react';
 
 export function Layout() {
   const navigate = useNavigate();
@@ -11,18 +12,61 @@ export function Layout() {
   const { title } = usePageContext();
   const [isInputFocused, setIsInputFocused] = useState(false);
 
-  // Hide navbar when input/textarea is focused
+  const initDataRaw = useSignal(initData.state);
+
+  const [loading, setLoading] = useState(true);
+  const [hasAccess, setHasAccess] = useState(false);
+
+  // Reusable access check function
+  const checkAccess = async () => {
+    const userId = initDataRaw?.user?.id;
+    if (!userId) return;
+
+    setLoading(true);
+
+    try {
+      const res = await fetch(
+        `https://api-mtt.xlog.uz/api/auth/managers/gate_access/?telegram_id=${userId}`
+      );
+
+      const data = await res.json();
+
+      if (res.ok && data.success === true) {
+        setHasAccess(true);
+      } else {
+        setHasAccess(false);
+      }
+    } catch (e) {
+      setHasAccess(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // First check on mount
+  useEffect(() => {
+    if (initDataRaw?.user?.id) checkAccess();
+  }, [initDataRaw]);
+
+
+  // Retry button handler
+  const retry = () => {
+    checkAccess();
+  };
+
+
+  // Hide navbar when input focused
   useEffect(() => {
     const handleFocusIn = (e: FocusEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      if (['INPUT', 'TEXTAREA'].includes(target.tagName)) {
         setIsInputFocused(true);
       }
     };
 
     const handleFocusOut = (e: FocusEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      if (['INPUT', 'TEXTAREA'].includes(target.tagName)) {
         setIsInputFocused(false);
       }
     };
@@ -37,30 +81,44 @@ export function Layout() {
   }, []);
 
   const tabs = [
-    {
-      key: '/',
-      title: 'Home',
-      icon: <House />,
-    },
-    {
-      key: '/vehicles',
-      icon: <Car />,
-      title: 'Moshina',
-    },
-    {
-      key: '/ton-connect',
-      title: 'Me',
-      icon: <User />,
-    },
+    { key: '/', title: 'Home', icon: <House /> },
+    { key: '/vehicles', title: 'Moshina', icon: <Car /> },
+    { key: '/ton-connect', title: 'Me', icon: <User /> },
   ];
 
+  // Loading
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen text-lg">
+        Iltimos kuting....
+      </div>
+    );
+  }
+
+  // Access Denied screen with TRY AGAIN button
+  if (!hasAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-center p-6">
+        <h2 className="text-2xl font-bold mb-4 text-red-600">Ruxsat Yo'q</h2>
+        <p className="text-gray-700 text-base mb-4">
+          Iltimos botga start bosib keyin yana urinib ko'ring
+        </p>
+
+        <button
+          onClick={retry}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg text-base shadow hover:bg-blue-700"
+        >
+          Qayta urinish
+        </button>
+      </div>
+    );
+  }
+
+  // ACCESS GRANTED → show app
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-
-      <Card style={{ borderRadius: 0 }} className='h-25 flex flex-col justify-end'>
-        <NavBar>
-          {title}
-        </NavBar>
+      <Card style={{ borderRadius: 0 }} className="h-25 flex flex-col justify-end">
+        <NavBar>{title}</NavBar>
       </Card>
 
       <div style={{ flex: 1, overflow: 'auto' }}>
@@ -81,12 +139,15 @@ export function Layout() {
           pointerEvents: isInputFocused ? 'none' : 'auto',
         }}
       >
-        <TabBar activeKey={location.pathname} onChange={value => navigate(value)}>
+        <TabBar
+          activeKey={location.pathname}
+          onChange={value => navigate(value)}
+        >
           {tabs.map(item => (
             <TabBar.Item
               key={item.key}
               icon={item.icon}
-              title={<span className='text-base'>{item.title}</span>}
+              title={<span className="text-base">{item.title}</span>}
             />
           ))}
         </TabBar>

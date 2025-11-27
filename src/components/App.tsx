@@ -27,7 +27,7 @@ export function App() {
               <Route element={<Layout />}>
                 {routes.map((route) => <Route key={route.path} {...route} />)}
               </Route>
-              <Route path="*" element={<Navigate to="/"/>}/>
+              <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </HashRouter>
         </PageProvider>
