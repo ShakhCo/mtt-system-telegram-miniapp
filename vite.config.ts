@@ -36,7 +36,7 @@ export default defineConfig({
   server: {
     // Exposes your dev server and makes it accessible for the devices in the same network.
     host: true,
-    allowedHosts: ['barbershop-miniapp-beta.automations.uz'],
+    allowedHosts: ['mini-app.xlog.uz'],
     proxy: {
       '/api': {
         target: 'https://api-mtt.xlog.uz',
