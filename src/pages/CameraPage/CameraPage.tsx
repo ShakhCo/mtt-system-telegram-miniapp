@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, Dialog, Grid, Image, Input, Space, Toast } from 'antd-mobile';
+import { Button, Card, Dialog, Grid, Image, Input, List, Space, Toast } from 'antd-mobile';
 import type { CascaderOption } from 'antd-mobile/es/components/cascader-view';
 import { X, Circle } from 'lucide-react';
 
@@ -276,12 +276,21 @@ export const CameraPage: FC = () => {
   }, [choices, destinationOptions]);
 
   const showOptionsDialog = (options: CascaderOption[], path: { label: string; value: string }[] = []) => {
-    const actions = options.map(option => ({
+    console.log('showOptionsDialog - path:', path);
+    console.log('showOptionsDialog - options count:', options.length);
+    console.log('showOptionsDialog - options:', options);
+
+    const actions = options.map((option, index) => ({
       key: String(option.value),
       text: option.label || '',
       disabled: option.disabled,
+      style: {
+        backgroundColor: index % 2 === 0 ? '#f5f5f5' : 'transparent',
+        color: option.color ? option.color : '#007aff',
+      },
       onClick: () => {
         const newPath = [...path, { label: option.label || '', value: String(option.value) }];
+        console.log('Option clicked:', option.label, '- has children:', option.children?.length || 0);
 
         if (option.children && option.children.length > 0) {
           // Has children, close current and show next level
@@ -302,6 +311,10 @@ export const CameraPage: FC = () => {
         key: 'back',
         text: '← Орқага',
         disabled: false,
+        style: {
+          backgroundColor: 'transparent',
+          color: 'rgb(130, 130, 130)',
+        },
         onClick: () => {
           // Go back to previous level
           const previousPath = path.slice(0, -1);
@@ -320,14 +333,62 @@ export const CameraPage: FC = () => {
       });
     }
 
+    // Get the title for the current level
+    const getDialogTitle = (): string => {
+      if (path.length === 0) return 'Мошина тури'; // Vehicle Type
+
+      const vehicleType = path[0]?.value;
+
+      // Light vehicle
+      if (vehicleType === 'light') {
+        if (path.length === 1) return 'Мақсад'; // Purpose
+        return '';
+      }
+
+      // Cargo vehicle
+      if (vehicleType === 'cargo') {
+        if (path.length === 1) return 'Транспорт тури'; // Transport Type
+        if (path.length === 2) return 'Ҳолати'; // Load Status
+
+        const loadStatus = path[2]?.value;
+
+        // Empty cargo
+        if (loadStatus === 'empty') {
+          if (path.length === 3) return 'Жой'; // Destination
+          return '';
+        }
+
+        // Loaded cargo
+        if (loadStatus === 'loaded' || loadStatus === 'with_load') {
+          if (path.length === 3) return 'Юк тури'; // Cargo Type
+
+          const cargoType = path[3]?.value;
+
+          // Container
+          if (cargoType === 'container') {
+            if (path.length === 4) return 'Контейнер тури'; // Container Size
+            if (path.length === 5) return 'Контейнер ҳолати'; // Container Load Status
+            if (path.length === 6) return 'Жой'; // Destination
+            return '';
+          }
+
+          // Other cargo
+          if (path.length === 4) return 'Жой'; // Destination
+          return '';
+        }
+      }
+
+      return 'Танланг';
+    };
+
     Dialog.show({
-      title: 'Мошина тури',
+      title: getDialogTitle(),
       content: path.length > 0 ? path.map(p => p.label).join(' → ') : '',
       closeOnMaskClick: path.length === 0,
       closeOnAction: false,
       actions: actions,
       bodyStyle: {
-        maxHeight: '60vh',
+        maxHeight: '90vh',
         overflowY: 'auto',
       },
     });
@@ -355,6 +416,8 @@ export const CameraPage: FC = () => {
 
   // Function to get appropriate label for each level based on selection context
   const getLabelForLevel = (level: number, path: { label: string; value: string }[]): string => {
+    console.log('getLabelForLevel - level:', level, 'path:', path);
+
     if (level === 0) {
       return 'Мошина тури'; // Vehicle Type
     }
@@ -380,8 +443,8 @@ export const CameraPage: FC = () => {
         return '';
       }
 
-      // With load path
-      if (loadStatus === 'with_load') {
+      // With load path (check for both 'loaded' and 'with_load' to be safe)
+      if (loadStatus === 'loaded' || loadStatus === 'with_load') {
         const cargoType = path[3]?.value;
 
         if (level === 3) {
@@ -851,30 +914,33 @@ export const CameraPage: FC = () => {
               />
             </Card>
 
-            <Button size='large' block onClick={handleVehicleTypeSelection} color='primary'>
-              Мошина тури
-            </Button>
+            {selectedPath.length === 0 && (
+              <Button size='large' block onClick={handleVehicleTypeSelection} color='primary'>
+                Мошина тури
+              </Button>
+            )}
 
             {selectedPath.length > 0 && (
-              <Space direction='vertical' block>
+              <List>
                 {selectedPath.map((pathItem, index) => {
                   const label = getLabelForLevel(index, selectedPath);
                   // Only render if we have a label for this level
                   if (!label) return null;
 
                   return (
-                    <Card
+                    <List.Item
                       key={index}
-                      title={label}
                       onClick={() => handleEditSelection(index)}
+                      clickable
                     >
-                      <div className="text-base">
-                        {pathItem.label}
+                      <div className="flex justify-between items-center w-full gap-4">
+                        <span className="text-neutral-600 flex-shrink-0">{label}</span>
+                        <span className="font-medium truncate text-right">{pathItem.label}</span>
                       </div>
-                    </Card>
+                    </List.Item>
                   );
                 })}
-              </Space>
+              </List>
             )}
 
             {selectedPath.length > 0 && plateNumber.trim() && allPhotos.length > 0 && (
