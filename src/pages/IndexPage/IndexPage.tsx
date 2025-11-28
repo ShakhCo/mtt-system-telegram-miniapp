@@ -77,13 +77,7 @@ export const IndexPage: FC = () => {
 
   return (
     <Page back={false} title="Home">
-      <Space direction='vertical' block style={{ padding: '10px' }}>
-
-        <Card title={`Assalamu alaykum, ${firstName}!`}>
-          <span className='text-base'>
-            Welcome to the Vehicle Management System
-          </span>
-        </Card>
+      <Space direction='vertical' block style={{ padding: '10px', paddingBottom: '100px' }}>
 
         {loading && (
           <Card>
@@ -103,121 +97,115 @@ export const IndexPage: FC = () => {
         )}
 
         {stats && !loading && (
-          <Space direction='vertical' block>
-            <Card title="Current Terminal Status">
-              <List>
-                <List.Item
-                  extra={<Tag color='primary' fill='solid'>{stats.current.total_on_terminal}</Tag>}
-                >
-                  Total Vehicles on Terminal
-                </List.Item>
-              </List>
-            </Card>
+          <List header="Терминалдаги ҳозирги ҳолат">
+            <List.Item
+              extra={<Tag color='primary' fill='solid' style={{ fontSize: '16px' }}>{stats.current.total_on_terminal}</Tag>}
+            >
+              Терминалдаги жами транспорт
+            </List.Item>
+          </List>
+        )}
 
-            <Card title="By Vehicle Type">
-              <List>
-                {Object.entries(stats.current.by_vehicle_type).map(([key, value]) => (
-                  <List.Item
-                    key={key}
-                    extra={<Tag color='primary'>{value.count}</Tag>}
-                  >
-                    {value.label}
-                  </List.Item>
-                ))}
-              </List>
-            </Card>
+        {stats && !loading && (
+          <List header="Транспорт тури бўйича">
+            {Object.entries(stats.current.by_vehicle_type).map(([key, value]) => (
+              <List.Item
+                key={key}
+                extra={<Tag color='primary' style={{ fontSize: '15px' }}>{value.count}</Tag>}
+              >
+                {value.label}
+              </List.Item>
+            ))}
+          </List>
+        )}
 
-            <Card title="By Transport Type">
-              <List>
-                {Object.entries(stats.current.by_transport_type).map(([key, value]) => (
-                  <List.Item
-                    key={key}
-                    extra={<Tag color='success'>{value.count}</Tag>}
-                  >
-                    {value.label}
-                  </List.Item>
-                ))}
-              </List>
-            </Card>
+        {stats && !loading && (
+          <List header="Ташиш тури бўйича">
+            {Object.entries(stats.current.by_transport_type).map(([key, value]) => (
+              <List.Item
+                key={key}
+                extra={<Tag color='success' style={{ fontSize: '15px' }}>{value.count}</Tag>}
+              >
+                {value.label}
+              </List.Item>
+            ))}
+          </List>
+        )}
 
-            <Card title="By Load Status">
-              <List>
-                {Object.entries(stats.current.by_load_status).map(([key, value]) => (
-                  <List.Item
-                    key={key}
-                    extra={<Tag color='warning'>{value.count}</Tag>}
-                  >
-                    {value.label}
-                  </List.Item>
-                ))}
-              </List>
-            </Card>
+        {stats && !loading && (
+          <List header="Юк ҳолати бўйича">
+            {Object.entries(stats.current.by_load_status).map(([key, value]) => (
+              <List.Item
+                key={key}
+                extra={<Tag color='warning' style={{ fontSize: '15px' }}>{value.count}</Tag>}
+              >
+                {value.label}
+              </List.Item>
+            ))}
+          </List>
+        )}
 
-            <Card title="Time Metrics">
-              <List>
-                <List.Item
-                  extra={`${stats.time_metrics.avg_dwell_hours.toFixed(1)} hrs`}
-                >
-                  Average Dwell Time
-                </List.Item>
-                {Object.entries(stats.time_metrics.avg_dwell_by_type).map(([type, hours]) => (
-                  <List.Item
-                    key={type}
-                    extra={`${hours.toFixed(1)} hrs`}
-                    description={`Average for ${type}`}
-                  >
-                    {type}
-                  </List.Item>
-                ))}
-                <List.Item
-                  extra={`${stats.time_metrics.longest_current_stay.hours.toFixed(1)} hrs`}
-                  description={`Vehicle: ${stats.time_metrics.longest_current_stay.license_plate}`}
-                >
-                  Longest Current Stay
-                </List.Item>
-              </List>
-            </Card>
+        {stats && !loading && (
+          <List header="Вақт кўрсаткичлари">
+            <List.Item
+              extra={<span style={{ fontSize: '15px' }}>{stats.time_metrics.avg_dwell_hours.toFixed(1)} соат</span>}
+            >
+              Ўртача турган вақти
+            </List.Item>
+            {Object.entries(stats.time_metrics.avg_dwell_by_type).map(([type, hours]) => (
+              <List.Item
+                key={type}
+                extra={<span style={{ fontSize: '15px' }}>{hours.toFixed(1)} соат</span>}
+                description={`${type} учун ўртача`}
+              >
+                {type}
+              </List.Item>
+            ))}
+            <List.Item
+              extra={<span style={{ fontSize: '15px' }}>{stats.time_metrics.longest_current_stay.hours.toFixed(1)} соат</span>}
+              description={`Транспорт: ${stats.time_metrics.longest_current_stay.license_plate}`}
+            >
+              Энг узоқ турган
+            </List.Item>
+          </List>
+        )}
 
-            {stats.overstayers.count > 0 && (
-              <Card title={`Overstayers (>${stats.overstayers.threshold_hours}h)`}>
-                <List>
-                  {stats.overstayers.vehicles.map((vehicle) => (
-                    <List.Item
-                      key={vehicle.license_plate}
-                      extra={<Tag color='danger'>{vehicle.hours.toFixed(1)} hrs</Tag>}
-                      description={vehicle.vehicle_type}
-                    >
-                      {vehicle.license_plate}
-                    </List.Item>
-                  ))}
-                </List>
-              </Card>
-            )}
+        {stats && !loading && stats.overstayers.count > 0 && (
+          <List header={`Муддатидан ошганлар (>${stats.overstayers.threshold_hours}с)`}>
+            {stats.overstayers.vehicles.map((vehicle) => (
+              <List.Item
+                key={vehicle.license_plate}
+                extra={<Tag color='danger' style={{ fontSize: '15px' }}>{vehicle.hours.toFixed(1)} соат</Tag>}
+                description={vehicle.vehicle_type}
+              >
+                {vehicle.license_plate}
+              </List.Item>
+            ))}
+          </List>
+        )}
 
-            <Card title="Last 30 Days Activity">
-              <List>
-                <List.Item extra={stats.last_30_days.total_entries}>
-                  Total Entries
-                </List.Item>
-                <List.Item extra={stats.last_30_days.total_exits}>
-                  Total Exits
-                </List.Item>
-              </List>
-              <div style={{ marginTop: '16px' }}>
-                <strong>Recent Daily Entries:</strong>
-                <List>
-                  {stats.last_30_days.entries_by_day.map((entry) => (
-                    <List.Item
-                      key={entry.date}
-                      extra={<Tag>{entry.count}</Tag>}
-                    >
-                      {entry.date}
-                    </List.Item>
-                  ))}
-                </List>
-              </div>
-            </Card>
-          </Space>
+        {stats && !loading && (
+          <List header="Сўнгги 30 кунлик фаолият">
+            <List.Item extra={<span style={{ fontSize: '16px', fontWeight: '500' }}>{stats.last_30_days.total_entries}</span>}>
+              Жами кирганлар
+            </List.Item>
+            <List.Item extra={<span style={{ fontSize: '16px', fontWeight: '500' }}>{stats.last_30_days.total_exits}</span>}>
+              Жами чиққанлар
+            </List.Item>
+          </List>
+        )}
+
+        {stats && !loading && (
+          <List header="Сўнгги кунлик киришлар">
+            {stats.last_30_days.entries_by_day.map((entry) => (
+              <List.Item
+                key={entry.date}
+                extra={<Tag style={{ fontSize: '14px' }}>{entry.count}</Tag>}
+              >
+                {entry.date}
+              </List.Item>
+            ))}
+          </List>
         )}
       </Space>
     </Page>

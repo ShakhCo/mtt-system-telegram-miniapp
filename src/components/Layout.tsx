@@ -81,9 +81,9 @@ export function Layout() {
   }, []);
 
   const tabs = [
-    { key: '/', title: 'Home', icon: <House /> },
-    { key: '/vehicles', title: 'Moshina', icon: <Car /> },
-    { key: '/ton-connect', title: 'Me', icon: <User /> },
+    { key: '/', title: 'Бош саҳифа', icon: <House /> },
+    { key: '/vehicles', title: 'Машина', icon: <Car /> },
+    // { key: '/ton-connect', title: 'Мен', icon: <User /> },
   ];
 
   // Loading
