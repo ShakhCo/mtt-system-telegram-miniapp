@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 
 import { Page } from '@/components/Page.tsx';
 import { Card, Space, List, Tag, DotLoading } from 'antd-mobile';
-import { initData, useSignal } from '@tma.js/sdk-react';
 
 interface VehicleTypeData {
   count: number;
@@ -46,10 +45,6 @@ interface Statistics {
 }
 
 export const IndexPage: FC = () => {
-  const initDataState = useSignal(initData.state);
-  const user = initDataState?.user;
-  const firstName = `${user?.first_name}` || 'Guest';
-
   const [stats, setStats] = useState<Statistics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

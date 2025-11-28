@@ -2,7 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { Card, NavBar, TabBar } from 'antd-mobile';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usePageContext } from '@/contexts/PageContext';
-import { Car, House, User } from 'lucide-react';
+import { Car, House } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { initData, useSignal } from '@tma.js/sdk-react';
 
