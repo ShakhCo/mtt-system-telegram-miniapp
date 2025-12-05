@@ -24,28 +24,42 @@ interface PhotoFile {
   updated_at: string;
 }
 
+interface Customer {
+  id: number;
+  name: string;
+  phone: string;
+}
+
 interface VehicleEntry {
   id: number;
+  status: 'WAITING' | 'ON_TERMINAL' | 'EXITED';
+  status_display: string;
   license_plate: string;
   entry_photos: PhotoFile[];
-  entry_time: string;
-  recorded_by: number;
-  recorded_by_username: string;
+  entry_time: string | null;
+  manager: number | null;
+  customer: Customer | null;
   vehicle_type: 'LIGHT' | 'CARGO';
-  visitor_type?: 'EMPLOYEE' | 'CUSTOMER' | 'GUEST';
-  transport_type?: 'PLATFORM' | 'FURA' | 'PRICEP' | 'MINI_FURA' | 'ZIL' | 'GAZEL' | 'LABO';
-  entry_load_status?: 'LOADED' | 'EMPTY';
-  cargo_type?: 'CONTAINER' | 'FOOD' | 'METAL' | 'WOOD' | 'CHEMICAL' | 'EQUIPMENT' | 'OTHER';
-  container_size?: '1x20F' | '2x20F' | '40F';
-  container_load_status?: 'LOADED' | 'EMPTY';
-  destination?: number;
-  destination_name?: string;
-  destination_zone?: string;
-  exit_photo?: PhotoFile | null;
+  vehicle_type_display: string;
+  visitor_type?: 'EMPLOYEE' | 'CUSTOMER' | 'GUEST' | null;
+  visitor_type_display?: string | null;
+  transport_type?: 'PLATFORM' | 'FURA' | 'PRICEP' | 'MINI_FURA' | 'ZIL' | 'GAZEL' | 'LABO' | null;
+  transport_type_display?: string | null;
+  entry_load_status?: 'LOADED' | 'EMPTY' | null;
+  entry_load_status_display?: string | null;
+  cargo_type?: 'CONTAINER' | 'FOOD' | 'METAL' | 'WOOD' | 'CHEMICAL' | 'EQUIPMENT' | 'OTHER' | null;
+  cargo_type_display?: string | null;
+  container_size?: '1x20F' | '2x20F' | '40F' | null;
+  container_size_display?: string | null;
+  container_load_status?: 'LOADED' | 'EMPTY' | null;
+  container_load_status_display?: string | null;
+  destination?: number | null;
+  exit_photos: PhotoFile[];
   exit_time?: string | null;
   exit_load_status?: 'LOADED' | 'EMPTY' | null;
+  exit_load_status_display?: string | null;
   is_on_terminal: boolean;
-  dwell_time_hours: number;
+  dwell_time_hours: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -57,19 +71,6 @@ interface VehicleEntriesResponse {
   results: VehicleEntry[];
 }
 
-interface ChoiceOption {
-  value: string;
-  label: string;
-}
-
-interface ChoicesResponse {
-  vehicle_types: ChoiceOption[];
-  visitor_types: ChoiceOption[];
-  transport_types: ChoiceOption[];
-  load_statuses: ChoiceOption[];
-  cargo_types: ChoiceOption[];
-  container_sizes: ChoiceOption[];
-}
 
 export const VehiclesPage: FC = () => {
   const navigate = useNavigate();
@@ -89,9 +90,6 @@ export const VehiclesPage: FC = () => {
   const [detailPopupVisible, setDetailPopupVisible] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<VehicleEntry | null>(null);
 
-  // Choices API state
-  const [choices, setChoices] = useState<ChoicesResponse | null>(null);
-
   // Handle back navigation
   const handleBackNavigation = () => {
     if (detailPopupVisible) {
@@ -101,29 +99,6 @@ export const VehiclesPage: FC = () => {
     }
     // Otherwise, navigate back
     navigate(-1);
-  };
-
-  // Fetch choices from API
-  const fetchChoices = async () => {
-    try {
-      const response = await fetch('https://api-mtt.xlog.uz/api/vehicles/choices/', {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        console.error('Failed to fetch choices');
-        return;
-      }
-
-      const data = await response.json() as ChoicesResponse;
-      console.log('Choices loaded:', data);
-      setChoices(data);
-    } catch (error) {
-      console.error('Error fetching choices:', error);
-    }
   };
 
   // Fetch vehicle entries
@@ -173,7 +148,6 @@ export const VehiclesPage: FC = () => {
 
   // Load initial data when component mounts
   useEffect(() => {
-    void fetchChoices();
     void fetchVehicleEntries();
   }, []);
 
@@ -196,53 +170,19 @@ export const VehiclesPage: FC = () => {
     });
   };
 
-  // Helper function to get label from choices API
-  const getLabelFromChoices = (choiceArray: ChoiceOption[] | undefined, value: string | undefined): string => {
-    if (!choiceArray || !value) return '';
-    const choice = choiceArray.find(c => c.value === value);
-    return choice?.label || value;
-  };
-
   // Get vehicle type label in Uzbek
   const getVehicleTypeLabel = (entry: VehicleEntry) => {
-    if (!choices) {
-      // Fallback to old static labels if choices not loaded yet
-      if (entry.vehicle_type === 'LIGHT') {
-        const visitorTypeMap: Record<string, string> = {
-          'EMPLOYEE': 'Ходим',
-          'CUSTOMER': 'Мижоз',
-          'GUEST': 'Мехмон',
-        };
-        return `Енгил автомашина - ${visitorTypeMap[entry.visitor_type || ''] || ''}`;
-      }
-
-      if (entry.vehicle_type === 'CARGO') {
-        const transportTypeMap: Record<string, string> = {
-          'PLATFORM': 'Платформа',
-          'FURA': 'Фура',
-          'PRICEP': 'Прицеп',
-          'MINI_FURA': 'Мини Фура',
-          'ZIL': 'Зил',
-          'GAZEL': 'Газель',
-          'LABO': 'Лабо',
-        };
-        return `Юк машина - ${transportTypeMap[entry.transport_type || ''] || ''}`;
-      }
-
-      return entry.vehicle_type;
-    }
-
-    // Use API labels
-    const vehicleTypeLabel = getLabelFromChoices(choices.vehicle_types, entry.vehicle_type);
+    // Use display fields from API if available
+    const vehicleTypeLabel = entry.vehicle_type_display || entry.vehicle_type;
 
     if (entry.vehicle_type === 'LIGHT') {
-      const visitorTypeLabel = getLabelFromChoices(choices.visitor_types, entry.visitor_type);
-      return `${vehicleTypeLabel} - ${visitorTypeLabel}`;
+      const visitorTypeLabel = entry.visitor_type_display || entry.visitor_type || '';
+      return visitorTypeLabel ? `${vehicleTypeLabel} - ${visitorTypeLabel}` : vehicleTypeLabel;
     }
 
     if (entry.vehicle_type === 'CARGO') {
-      const transportTypeLabel = getLabelFromChoices(choices.transport_types, entry.transport_type);
-      return `${vehicleTypeLabel} - ${transportTypeLabel}`;
+      const transportTypeLabel = entry.transport_type_display || entry.transport_type || '';
+      return transportTypeLabel ? `${vehicleTypeLabel} - ${transportTypeLabel}` : vehicleTypeLabel;
     }
 
     return vehicleTypeLabel;
@@ -271,63 +211,50 @@ export const VehiclesPage: FC = () => {
     // License plate
     details.push({ label: 'Давлат рақами', value: entry.license_plate });
 
+    // Status
+    details.push({ label: 'Ҳолати', value: entry.status_display });
+
     // Entry time
-    details.push({ label: 'Кириш вақти', value: formatDate(entry.entry_time) });
+    if (entry.entry_time) {
+      details.push({ label: 'Кириш вақти', value: formatDate(entry.entry_time) });
+    }
 
     // Vehicle type
     details.push({ label: 'Мошина тури', value: getVehicleTypeLabel(entry) });
 
-    // Status
-    details.push({
-      label: 'Ҳолати',
-      value: entry.is_on_terminal ? 'Терминалда' : 'Чиқиб кетди',
-    });
-
-    // Destination
-    if (entry.destination_name) {
-      details.push({ label: 'Жой', value: entry.destination_name });
+    // Customer info
+    if (entry.customer) {
+      details.push({ label: 'Мижоз', value: entry.customer.name });
+      details.push({ label: 'Телефон', value: entry.customer.phone });
     }
 
     // Cargo type
     if (entry.cargo_type) {
-      const cargoTypeLabel = choices
-        ? getLabelFromChoices(choices.cargo_types, entry.cargo_type)
-        : entry.cargo_type;
+      const cargoTypeLabel = entry.cargo_type_display || entry.cargo_type;
       details.push({ label: 'Юк тури', value: cargoTypeLabel });
     }
 
     // Container size
     if (entry.container_size) {
-      const containerSizeLabel = choices
-        ? getLabelFromChoices(choices.container_sizes, entry.container_size)
-        : entry.container_size;
+      const containerSizeLabel = entry.container_size_display || entry.container_size;
       details.push({ label: 'Контейнер ўлчами', value: containerSizeLabel });
     }
 
     // Load status
     if (entry.entry_load_status) {
-      const loadStatusLabel = choices
-        ? getLabelFromChoices(choices.load_statuses, entry.entry_load_status)
-        : entry.entry_load_status;
+      const loadStatusLabel = entry.entry_load_status_display || entry.entry_load_status;
       details.push({ label: 'Юкланиш ҳолати', value: loadStatusLabel });
     }
 
     // Container load status (if different from entry load status)
     if (entry.container_load_status && entry.container_load_status !== entry.entry_load_status) {
-      const containerLoadStatusLabel = choices
-        ? getLabelFromChoices(choices.load_statuses, entry.container_load_status)
-        : entry.container_load_status;
+      const containerLoadStatusLabel = entry.container_load_status_display || entry.container_load_status;
       details.push({ label: 'Контейнер юкланиш ҳолати', value: containerLoadStatusLabel });
     }
 
     // Dwell time
-    if (entry.dwell_time_hours > 0) {
+    if (entry.dwell_time_hours && entry.dwell_time_hours > 0) {
       details.push({ label: 'Туриш вақти', value: `${entry.dwell_time_hours} соат` });
-    }
-
-    // Recorded by
-    if (entry.recorded_by_username) {
-      details.push({ label: 'Қайд қилган', value: entry.recorded_by_username });
     }
 
     // Exit time
@@ -337,11 +264,12 @@ export const VehiclesPage: FC = () => {
 
     // Exit load status
     if (entry.exit_load_status) {
-      const exitLoadStatusLabel = choices
-        ? getLabelFromChoices(choices.load_statuses, entry.exit_load_status)
-        : entry.exit_load_status;
+      const exitLoadStatusLabel = entry.exit_load_status_display || entry.exit_load_status;
       details.push({ label: 'Чиқиш юкланиш ҳолати', value: exitLoadStatusLabel });
     }
+
+    // Created at
+    details.push({ label: 'Яратилган сана', value: formatDate(entry.created_at) });
 
     return details;
   };
@@ -438,16 +366,20 @@ export const VehiclesPage: FC = () => {
                       Расм йўқ
                     </div>
                   )
-                } 
+                }
                 description={
                   <Space direction='vertical' style={{ '--gap': '4px' }}>
                     <div className='text-base'>
-                      {formatDate(entry.is_on_terminal ? entry.entry_time : entry.exit_time ? entry.exit_time : entry.entry_time)}
+                      {entry.entry_time ? formatDate(entry.entry_time) : entry.exit_time ? formatDate(entry.exit_time) : formatDate(entry.created_at)}
                     </div>
                     <div className='text-base' style={{
-                      color: entry.is_on_terminal ? '#00b578' : '#999',
+                      color: entry.status === 'ON_TERMINAL'
+                        ? '#00b578'
+                        : entry.status === 'WAITING' ? '#ff8f1f'
+                          : entry.status === 'EXITED' ? 'red'
+                            : '#999999',
                     }}>
-                      {entry.is_on_terminal ? 'Терминалда' : 'Чиқиб кетди'}
+                      {entry.status_display}
                     </div>
                   </Space>
                 }
@@ -542,17 +474,32 @@ export const VehiclesPage: FC = () => {
               ))}
             </Space>
 
-            {selectedEntry?.is_on_terminal && (
+            {selectedEntry?.status === 'WAITING' && (
+              <div className='my-5'>
+                <Button
+                  block
+                  color='success'
+                  onClick={() => {
+                    setDetailPopupVisible(false);
+                    navigate(`/vehicles/accept-entry/${selectedEntry.id}`);
+                  }}
+                >
+                  Қабул қилиш
+                </Button>
+              </div>
+            )}
+
+            {selectedEntry?.status === 'ON_TERMINAL' && (
               <div className='my-5'>
                 <Button
                   block
                   color='primary'
                   onClick={() => {
                     setDetailPopupVisible(false);
-                    navigate('/vehicles/exit-entry');
+                    navigate(`/vehicles/exit-entry/${selectedEntry.id}`);
                   }}
                 >
-                  Terminaldan Chiqarish
+                  Терминалдан чиқариш
                 </Button>
               </div>
             )}

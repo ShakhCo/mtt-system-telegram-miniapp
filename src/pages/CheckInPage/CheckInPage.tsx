@@ -1,11 +1,28 @@
 import type { FC } from 'react';
-import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button, Card, Dialog, Image, Input, Loading, Radio, Space, Toast } from 'antd-mobile';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Button, Card, Dialog, Grid, Image, Input, Space, Toast, Loading } from 'antd-mobile';
 import { X, Circle, Camera } from 'lucide-react';
 
 import { Page } from '@/components/Page.tsx';
 import { useCamera } from '@/contexts/CameraContext';
+
+interface Customer {
+  id: number;
+  name: string;
+  phone: string;
+}
+
+interface VehicleEntry {
+  id: number;
+  status: 'WAITING' | 'ON_TERMINAL' | 'EXITED';
+  status_display: string;
+  license_plate: string;
+  vehicle_type: 'LIGHT' | 'CARGO';
+  vehicle_type_display: string;
+  customer: Customer | null;
+  created_at: string;
+}
 
 interface RecognitionResult {
   plate_number: string;
@@ -14,23 +31,59 @@ interface RecognitionResult {
   error_message?: string;
 }
 
-type LoadStatus = 'EMPTY' | 'LOADED';
-
-export const ExitEntryPage: FC = () => {
+export const CheckInPage: FC = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { requestCameraAccess } = useCamera();
+
+  // Vehicle data state
+  const [vehicleData, setVehicleData] = useState<VehicleEntry | null>(null);
+  const [isLoadingVehicle, setIsLoadingVehicle] = useState(true);
 
   // Camera state
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isCameraLoading, setIsCameraLoading] = useState(false);
-  const [isSubmittingExit, setIsSubmittingExit] = useState(false);
+  const [isSubmittingCheckIn, setIsSubmittingCheckIn] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [plateNumber, setPlateNumber] = useState<string>('');
-  const [exitLoadStatus, setExitLoadStatus] = useState<LoadStatus>('EMPTY');
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [_recognitionResult, setRecognitionResult] = useState<RecognitionResult | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Fetch vehicle data on mount
+  useEffect(() => {
+    if (id) {
+      void fetchVehicleData(id);
+    }
+  }, [id]);
+
+  const fetchVehicleData = async (vehicleId: string) => {
+    setIsLoadingVehicle(true);
+    try {
+      const response = await fetch(`https://api-mtt.xlog.uz/api/vehicles/entries/${vehicleId}/`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        Toast.show({ content: 'Маълумот топилмади', icon: 'fail' });
+        navigate('/vehicles');
+        return;
+      }
+
+      const data = await response.json() as VehicleEntry;
+      setVehicleData(data);
+    } catch (error) {
+      console.error('Error fetching vehicle:', error);
+      Toast.show({ content: 'Хатолик юз берди', icon: 'fail' });
+      navigate('/vehicles');
+    } finally {
+      setIsLoadingVehicle(false);
+    }
+  };
 
   const openCamera = async () => {
     try {
@@ -160,8 +213,23 @@ export const ExitEntryPage: FC = () => {
 
       if (result && result.success) {
         setRecognitionResult(result);
+
+        // Compare recognized plate with vehicle's license plate
+        const recognizedPlate = result.plate_number.replace(/\s+/g, '').toUpperCase();
+        const vehiclePlate = (vehicleData?.license_plate || '').replace(/\s+/g, '').toUpperCase();
+
+        if (vehiclePlate && recognizedPlate !== vehiclePlate) {
+          // Plate doesn't match - show recognized plate so user can see what was detected
+          Toast.show({
+            content: `Рақам мос келмади! Аниқланган: ${result.plate_number}, Кутилган: ${vehicleData?.license_plate}`,
+            icon: 'fail',
+            duration: 3000,
+          });
+        }
+        // Always set the recognized plate number
         setPlateNumber(result.plate_number);
       } else {
+        // Recognition failed
         setRecognitionResult(result);
         Toast.show({
           content: 'Рақам аниқланмади. Илтимос, қўлда киритинг',
@@ -180,44 +248,36 @@ export const ExitEntryPage: FC = () => {
 
   const handleBackNavigation = () => {
     if (isCameraOpen) {
-      // Close camera if it's open
       goBack();
     } else {
-      // Navigate back to vehicles list
       navigate('/vehicles');
     }
   };
 
-  const submitExitEntry = async () => {
+  const submitCheckIn = async () => {
     if (!capturedPhoto) {
       Toast.show({ content: 'Илтимос, расм олинг', icon: 'fail' });
       return;
     }
 
     if (!plateNumber.trim()) {
-      Toast.show({ content: 'Илтимос, номер киритинг', icon: 'fail' });
+      Toast.show({ content: 'Илтимос, давлат рақамини киритинг', icon: 'fail' });
       return;
     }
 
-    setIsSubmittingExit(true);
+    setIsSubmittingCheckIn(true);
 
     try {
       const formData = new FormData();
 
-      // Add photo file
-      const blob = base64ToBlob(capturedPhoto);
-      formData.append('exit_photo_files', blob, 'exit_photo_1.jpg');
-
       // Add license plate
-      formData.append('license_plate', plateNumber.trim());
+      formData.append('license_plate', plateNumber);
 
-      // Add exit time
-      formData.append('exit_time', new Date().toISOString());
+      // Add photo file as array
+      const blob = base64ToBlob(capturedPhoto);
+      formData.append('entry_photo_files', blob, 'entry_photo_1.jpg');
 
-      // Add exit load status
-      formData.append('exit_load_status', exitLoadStatus);
-
-      const response = await fetch('https://api-mtt.xlog.uz/api/vehicles/entries/exit/', {
+      const response = await fetch('https://api-mtt.xlog.uz/api/vehicles/entries/check-in/', {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -239,24 +299,54 @@ export const ExitEntryPage: FC = () => {
         return;
       }
 
-      Toast.show({ content: 'Муваффақиятли чиқарилди!', icon: 'success' });
+      Toast.show({ content: 'Муваффақиятли қабул қилинди!', icon: 'success' });
 
       setTimeout(() => {
         navigate('/vehicles');
       }, 1000);
     } catch (error) {
-      console.error('Error submitting exit entry:', error);
+      console.error('Error submitting check-in:', error);
       Toast.show({ content: 'Хатолик: ' + (error instanceof Error ? error.message : 'Unknown'), icon: 'fail' });
     } finally {
-      setIsSubmittingExit(false);
+      setIsSubmittingCheckIn(false);
     }
   };
+
+  if (isLoadingVehicle) {
+    return (
+      <Page back={true} onBack={() => navigate('/vehicles')} title="Қабул қилиш">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+          <Loading color="primary" />
+        </div>
+      </Page>
+    );
+  }
 
   return (
     <>
       {!isCameraOpen ? (
-        <Page back={true} onBack={handleBackNavigation} title="Терминалдан чиқариш">
+        <Page back={true} onBack={handleBackNavigation} title="Қабул қилиш">
           <Space direction='vertical' block style={{ padding: '10px', paddingBottom: '100px' }}>
+            {/* Vehicle Info Card */}
+            {vehicleData && (
+              <Card title="Машина маълумотлари">
+                <Grid columns={1} gap={16}>
+                  <Grid.Item>
+                    <div className='text-base'>{vehicleData.license_plate}</div>
+                    <div className='text-sm' style={{ color: '#999' }}>Давлат рақами</div>
+                  </Grid.Item>
+                  {vehicleData.customer && (
+                    <>
+                      <Grid.Item>
+                        <div className='text-base'>{vehicleData.customer.name} ({vehicleData.customer.phone})</div>
+                        <div className='text-sm' style={{ color: '#999' }}>Мижоз / Телефон</div>
+                      </Grid.Item>
+                    </>
+                  )}
+                </Grid>
+              </Card>
+            )}
+
             <Card title="Расм">
               {capturedPhoto ? (
                 <div className='relative' style={{ display: 'inline-block' }}>
@@ -291,38 +381,28 @@ export const ExitEntryPage: FC = () => {
                     <span style={{ color: '#999' }}>Рақам аниқланмоқда...</span>
                   </div>
                 ) : (
-                  <Input
-                    value={plateNumber}
-                    onChange={setPlateNumber}
-                    placeholder="Давлат рақамини киритинг"
-                    clearable
-                  />
+                  <>
+                    <Input
+                      value={plateNumber}
+                      onChange={setPlateNumber}
+                      placeholder="Давлат рақамини киритинг"
+                      clearable
+                    />
+                  </>
                 )}
-              </Card>
-            )}
-
-            {/* Load Status Card - shown after photo is captured and recognition is done */}
-            {capturedPhoto && !isRecognizing && (
-              <Card title="Юк ҳолати">
-                <Radio.Group value={exitLoadStatus} onChange={(val) => setExitLoadStatus(val as LoadStatus)}>
-                  <Space direction='vertical' block>
-                    <Radio value='EMPTY'>Бўш</Radio>
-                    <Radio value='LOADED'>Юкланган</Radio>
-                  </Space>
-                </Radio.Group>
               </Card>
             )}
 
             {capturedPhoto && plateNumber.trim() && !isRecognizing && (
               <Button
                 block
-                color='danger'
+                color='success'
                 size='large'
-                onClick={submitExitEntry}
-                loading={isSubmittingExit}
-                disabled={isSubmittingExit}
+                onClick={submitCheckIn}
+                loading={isSubmittingCheckIn}
+                disabled={isSubmittingCheckIn}
               >
-                {isSubmittingExit ? 'Чиқарилмоқда...' : 'Чиқариш'}
+                {isSubmittingCheckIn ? 'Қабул қилинмоқда...' : 'Қабул қилиш'}
               </Button>
             )}
           </Space>
